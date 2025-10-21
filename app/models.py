@@ -13,7 +13,7 @@ class AudioFileResponse(BaseModel):
     file_size: int
     mime_type: str
     tags: List[str] = []
-    additional_metadata: Optional[Dict[str, Any]] = None
+    additional_info: Optional[Dict[str, Any]] = None
     upload_timestamp: str
 
     class Config:
@@ -44,7 +44,7 @@ class ListResponse(BaseModel):
 class UploadRequest(BaseModel):
     user_id: str
     tags: List[str] = []
-    additional_metadata: Optional[Dict[str, Any]] = None
+    additional_info: Optional[Dict[str, Any]] = None
 
     @validator('user_id')
     def validate_user_id(cls, v):

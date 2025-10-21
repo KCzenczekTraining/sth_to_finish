@@ -131,139 +131,79 @@ async def health_check():
 
 @app.post("/upload", response_model=UploadResponse)
 async def upload_audio(
-    user_id: str = Form(..., description="User ID"),
-    tags: str = Form(default="[]", description="JSON array of tags"),
-    additional_metadata: str = Form(default="{}", description="JSON object with additional metadata"),
-    audio: UploadFile = File(..., description="Audio file to upload"),
+    user_id: str = Form(..., description="ID of the user uploading the file"),
+    tags: str = Form(default="", description="Comma-separated list of tags for the audio file"),
+    additional_info: str = Form(default="", description="Additional information about the audio file"),
+    audio: UploadFile = File(..., description="The audio file to upload"),
     db: Session = Depends(get_db),
     config: AppConfig = Depends(get_app_config)
 ) -> UploadResponse:
     """
-    Upload an audio file with metadata.
-    
-    Args:
-        user_id: ID of the user uploading the file
-        tags: JSON string containing list of tags
-        additional_metadata: JSON string containing additional metadata
-        audio: Audio file to upload
-        db: Database session
-        config: Application configuration
-        
-    Returns:
-        UploadResponse with status and file information
+    Upload an audio file with optional metadata.
     """
+    
     logger = config.logger
+    
+    # Parse input data
+    parsed_tags = [tag.strip() for tag in tags.split(",") if tag.strip()] if tags else []
+    parsed_additional_info = additional_info.strip()
+    
+    # Validate and process audio file
+    is_valid, mime_type_or_error = validate_audio_file(audio, config.file_config)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=mime_type_or_error)
+    
+    mime_type = mime_type_or_error
+    unique_filename = generate_unique_filename(audio.filename)
+    file_id = str(uuid.uuid4())
+    
+    # Save file
     try:
-        # Parse tags
-        try:
-            parsed_tags = json.loads(tags) if tags else []
-            if not isinstance(parsed_tags, list):
-                raise ValueError("Tags must be a list")
-        except (json.JSONDecodeError, ValueError):
-            raise HTTPException(status_code=400, detail="Invalid tags format")
-        
-        # Parse additional metadata from JSON string
-        config.logger.debug(f"Parsing additional metadata: {additional_metadata}")
-        try:
-            parsed_metadata = json.loads(additional_metadata) if additional_metadata else {}
-            if not isinstance(parsed_metadata, dict):
-                raise ValueError("Additional metadata must be a dict")
-            config.logger.debug(f"Parsed metadata: {parsed_metadata}")
-        except (json.JSONDecodeError, ValueError) as e:
-            config.logger.error(f"Invalid metadata format for user {user_id}: {e}")
-            raise HTTPException(status_code=400, detail="Invalid additional_metadata format. Must be a JSON object.")
-        
-        # Validate user ID
-        if not user_id or not user_id.strip():
-            logger.error("Upload attempt with empty user ID")
-            raise HTTPException(status_code=400, detail="User ID is required")
-        
-        # Validate audio file
-        logger.debug(f"Validating audio file: {audio.filename}, content_type: {audio.content_type}")
-        is_valid, mime_type_or_error = validate_audio_file(audio, config.file_config)
-        if not is_valid:
-            logger.error(f"Invalid audio file for user {user_id}: {mime_type_or_error}")
-            raise HTTPException(status_code=400, detail=mime_type_or_error)
-        
-        mime_type = mime_type_or_error
-        logger.info(f"Audio file validation successful for user {user_id}: {mime_type}")
-        
-        # Generate unique filename
-        unique_filename = generate_unique_filename(audio.filename)
-        file_id = str(uuid.uuid4())
-        logger.debug(f"Generated file_id: {file_id}, unique_filename: {unique_filename}")
-        
-        # Save file to disk
-        logger.info(f"Saving file to disk: {unique_filename}")
-        try:
-            file_size = await save_uploaded_file(audio, unique_filename, config.upload_dir, config.file_config)
-            logger.info(f"File saved successfully: {unique_filename}, size: {file_size} bytes")
-            log_file_operation("upload", audio.filename, user_id, True, file_size)
-        except HTTPException:
-            log_file_operation("upload", audio.filename, user_id, False, error="File save failed")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to save file {audio.filename} for user {user_id}: {str(e)}")
-            log_file_operation("upload", audio.filename, user_id, False, error=str(e))
-            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
-        
-        # Create database record
-        logger.info(f"Creating database record for file_id: {file_id}")
-        try:
-            audio_record = AudioFile(
-                id=file_id,
-                user_id=user_id.strip(),
-                original_filename=audio.filename,
-                stored_filename=unique_filename,
-                file_size=file_size,
-                mime_type=mime_type,
-                upload_timestamp=datetime.utcnow()
-            )
-            
-            # Set tags and additional metadata
-            audio_record.set_tags(parsed_tags)
-            audio_record.set_additional_metadata(parsed_metadata if parsed_metadata else None)
-            
-            # Save to database
-            db.add(audio_record)
-            db.commit()
-            db.refresh(audio_record)
-            
-            logger.info(f"Database record created successfully for file_id: {file_id}")
-            log_database_operation("insert", "audio_files", file_id, True)
-            
-            # Create response
-            file_info = AudioFileResponse(**audio_record.to_dict())
-            
-            logger.info(f"Upload completed successfully for user {user_id}, file_id: {file_id}")
-            return UploadResponse(
-                status="success",
-                message="File uploaded successfully",
-                file_id=file_id,
-                file_info=file_info
-            )
-            
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Database operation failed for user {user_id}: {str(e)}")
-            log_database_operation("insert", "audio_files", file_id, False, str(e))
-            
-            # Clean up uploaded file on database error
-            try:
-                file_path = config.upload_dir / unique_filename
-                if file_path.exists():
-                    os.unlink(file_path)
-                    logger.info(f"Cleaned up file after database error: {unique_filename}")
-            except OSError as cleanup_error:
-                logger.error(f"Failed to cleanup file {unique_filename}: {cleanup_error}")
-            
-            raise HTTPException(status_code=500, detail=f"Failed to save metadata: {str(e)}")
-            
-    except HTTPException:
-        raise
+        file_size = await save_uploaded_file(audio, unique_filename, config.upload_dir, config.file_config)
+        log_file_operation("upload", audio.filename, user_id, True, file_size)
     except Exception as e:
-        logger.error(f"Unexpected upload error for user {user_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        log_file_operation("upload", audio.filename, user_id, False, error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+    
+    # Create database record
+    try:
+        audio_record = AudioFile(
+            id=file_id,
+            user_id=user_id.strip(),
+            original_filename=audio.filename,
+            stored_filename=unique_filename,
+            file_size=file_size,
+            mime_type=mime_type,
+            upload_timestamp=datetime.utcnow()
+        )
+        
+        audio_record.set_tags(parsed_tags)
+        if parsed_additional_info:
+            audio_record.set_additional_info({"info": parsed_additional_info})
+        
+        db.add(audio_record)
+        db.commit()
+        db.refresh(audio_record)
+        
+        log_database_operation("insert", "audio_files", file_id, True)
+        
+        return UploadResponse(
+            status="success",
+            message="File uploaded successfully",
+            file_id=file_id,
+            file_info=AudioFileResponse(**audio_record.to_dict())
+        )
+        
+    except Exception as e:
+        db.rollback()
+        log_database_operation("insert", "audio_files", file_id, False, str(e))
+        
+        # Cleanup file on database error
+        file_path = config.upload_dir / unique_filename
+        if file_path.exists():
+            file_path.unlink()
+        
+        raise HTTPException(status_code=500, detail=f"Failed to save metadata: {str(e)}")
 
 
 @app.get("/list", response_model=ListResponse)

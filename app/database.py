@@ -54,7 +54,7 @@ class AudioFile(Base):
     file_size = Column(Integer, nullable=False)
     mime_type = Column(String, nullable=False)
     tags = Column(Text, nullable=False, default="[]")
-    additional_metadata = Column(Text, nullable=True)
+    additional_info = Column(Text, nullable=True)
     upload_timestamp = Column(DateTime, default=datetime.utcnow)
 
     def get_tags(self) -> List[str]:
@@ -66,19 +66,19 @@ class AudioFile(Base):
     def set_tags(self, tags: List[str]) -> None:
         self.tags = json.dumps(tags)
 
-    def get_additional_metadata(self) -> Optional[dict]:
-        if not self.additional_metadata:
+    def get_additional_info(self) -> Optional[dict]:
+        if not self.additional_info:
             return None
         try:
-            return json.loads(self.additional_metadata)
+            return json.loads(self.additional_info)
         except (json.JSONDecodeError, TypeError):
             return None
 
-    def set_additional_metadata(self, metadata: Optional[dict]) -> None:
+    def set_additional_info(self, metadata: Optional[dict]) -> None:
         if metadata is None:
-            self.additional_metadata = None
+            self.additional_info = None
         else:
-            self.additional_metadata = json.dumps(metadata)
+            self.additional_info = json.dumps(metadata)
 
     def to_dict(self) -> dict:
         return {
@@ -88,7 +88,7 @@ class AudioFile(Base):
             "file_size": self.file_size,
             "mime_type": self.mime_type,
             "tags": self.get_tags(),
-            "additional_metadata": self.get_additional_metadata(),
+            "additional_info": self.get_additional_info(),
             "upload_timestamp": self.upload_timestamp.isoformat() if self.upload_timestamp else None
         }
 
