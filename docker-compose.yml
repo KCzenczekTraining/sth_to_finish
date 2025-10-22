@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  audio-server:
+    build: .
+    container_name: audio_processing_server
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./audio_uploads:/app/audio_uploads
+      - ./temp_downloads:/app/temp_downloads
+      - ./logs:/app/logs
+      - ./audio_metadata.db:/app/audio_metadata.db
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8123/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add a volume backup service
+  backup:
+    image: alpine:latest
+    container_name: audio_backup
+    volumes:
+      - ./audio_uploads:/backup/audio_uploads:ro
+      - ./audio_metadata.db:/backup/audio_metadata.db:ro
+      - ./backups:/backups
+    command: >
+      sh -c "
+        apk add --no-cache tar gzip &&
+        while true; do
+          echo 'Creating backup...' &&
+          tar -czf /backups/audio_backup_$$(date +%Y%m%d_%H%M%S).tar.gz -C /backup . &&
+          echo 'Backup created successfully' &&
+          find /backups -name '*.tar.gz' -mtime +7 -delete &&
+          sleep 86400
+        done
+      "
+    restart: unless-stopped
+    profiles:
+      - backup
+
+volumes:
+  audio_uploads:
+  temp_downloads:
+  backups:
