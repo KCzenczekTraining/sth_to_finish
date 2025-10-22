@@ -1,5 +1,8 @@
 # Audio Server
 
+This is a project that I have been asked to finish to prepare and did not have enough time to complete it then.
+Now I have... :)
+
 FastAPI server for audio uploads with metadata. Upload files, tag them, organize by user.
 
 ## What it does
@@ -30,28 +33,25 @@ Server runs on http://localhost:8123
 
 ## Usage
 
-Upload:
+API Endpoints:
+
 ```bash
-curl -X POST "http://localhost:8123/upload" \
+# Health check
+curl "http://localhost:8123/api/v1/health"
+
+# Upload audio file
+curl -X POST "http://localhost:8123/api/v1/audio/upload" \
   -F "user_id=alice" \
-  -F "tags=[\"music\", \"jazz\"]" \
+  -F "tags=music,jazz" \
+  -F "additional_info=My favorite song" \
   -F "audio=@song.mp3"
-```
 
-List files:
-```bash
-curl "http://localhost:8123/list?user_id=alice"
-curl "http://localhost:8123/list?user_id=alice&tag=jazz"
-```
+# List files (all or filtered by tag)
+curl "http://localhost:8123/api/v1/audio/list?user_id=alice"
+curl "http://localhost:8123/api/v1/audio/list?user_id=alice&tag=jazz"
 
-Download:
-```bash
-curl "http://localhost:8123/download?user_id=alice" -o files.zip
-```
-
-Health check:
-```bash
-curl "http://localhost:8123/health"
+# Download user files as ZIP
+curl "http://localhost:8123/api/v1/audio/download?user_id=alice" -o files.zip
 ```
 
 ## Logs
