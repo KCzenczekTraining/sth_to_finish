@@ -1,6 +1,7 @@
 # Audio Server
 
-This is a project that I have been asked to finish to prepare and did not have enough time to complete it then.
+This is a project that I have been asked to prepare and did not have enough time to complete it then.
+
 Now I have... :)
 
 FastAPI server for audio uploads with metadata. Upload files, tag them, organize by user.
