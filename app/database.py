@@ -6,7 +6,7 @@ import json
 
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -96,6 +96,24 @@ class AudioFile(Base):
 def get_db():
     """Get database session - uses default config for backward compatibility"""
     yield from _db_config.get_db_session()
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    user_id = Column(String, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    def to_dict(self) -> dict:
+        return {
+            "user_id": self.user_id,
+            "email": self.email,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "is_active": self.is_active
+        }
 
 
 def get_db_config() -> DatabaseConfig:
