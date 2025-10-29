@@ -9,3 +9,6 @@ passlib[bcrypt]==1.7.4
 aiofiles==23.2.0
 typing-extensions==4.8.0
 aiohttp==3.9.0
+slowapi==0.1.9
+python-magic==0.4.27
+email-validator==2.1.0
