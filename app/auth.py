@@ -1,3 +1,7 @@
+"""
+JWT authentication and password hashing utilities.
+Handles token creation, verification, and password validation.
+"""
 import os
 import secrets
 from datetime import datetime, timedelta
