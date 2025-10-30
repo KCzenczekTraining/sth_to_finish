@@ -1,8 +1,12 @@
+"""
+Pydantic models for audio file operations.
+Defines request/response schemas for upload, download, and listing endpoints.
+"""
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, validator
 
-from .common import AudioFileResponse, validate_user_id_field
+from app.models.common import AudioFileResponse, validate_user_id_field
 
 
 class UploadRequest(BaseModel):

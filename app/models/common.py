@@ -1,3 +1,7 @@
+"""
+Shared Pydantic models and validators.
+Contains reusable data models and validation functions.
+"""
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, validator
