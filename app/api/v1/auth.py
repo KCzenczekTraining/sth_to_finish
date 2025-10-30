@@ -1,17 +1,29 @@
+"""
+User authentication endpoints.
+Handles registration, login, and JWT token management.
+"""
 import re
-from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from ..auth import (
-    Token, UserLogin, UserRegistration, UserResponse,
-    create_token, hash_password, verify_password, 
-    is_strong_password, clean_input, security, verify_token
+from app.auth import (
+    Token,
+    UserLogin,
+    UserRegistration,
+    UserResponse,
+    clean_input,
+    create_token,
+    hash_password,
+    is_strong_password,
+    security,
+    verify_password,
+    verify_token,
 )
-from ..database import User, get_db
+from app.database import User, get_db
+
 
 router = APIRouter()
 

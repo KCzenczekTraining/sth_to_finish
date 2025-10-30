@@ -1,5 +1,9 @@
+"""
+Health check endpoint.
+Simple status endpoint for monitoring API availability.
+"""
 from fastapi import APIRouter
-from ...models import HealthResponse
+from app.models import HealthResponse
 
 router = APIRouter()
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter
-from .health import router as health_router
-from .audio import router as audio_router
-from .auth import router as auth_router
+from app.api.v1.health import router as health_router
+from app.api.v1.audio import router as audio_router
+from app.api.v1.auth import router as auth_router
 
 api_router = APIRouter()
 api_router.include_router(health_router, tags=["health"])

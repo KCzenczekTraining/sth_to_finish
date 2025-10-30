@@ -1,48 +1,67 @@
+"""
+Audio file management endpoints.
+Handles upload, download, listing, and bulk operations with authentication.
+"""
 import json
 import os
 import tempfile
 import uuid
 import zipfile
-
 from datetime import datetime
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from ...database import AudioFile, get_db
-from ...logging_config import log_database_operation, log_file_operation
-from ...models import (
+from app.api.v1.auth import get_current_user
+from app.auth import clean_input
+from app.database import AudioFile, User, get_db
+from app.logging_config import log_database_operation, log_file_operation
+from app.models import (
     AudioFileResponse,
-    UploadRequest,
-    UploadResponse,
+    DownloadRequest,
     ListRequest,
     ListResponse,
-    DownloadRequest
+    UploadRequest,
+    UploadResponse,
 )
-from ...utils import (
+from app.utils import (
     cleanup_temp_file,
     create_zip_with_metadata,
     generate_unique_filename,
     save_uploaded_file,
     validate_audio_file
 )
-from ...config import get_app_config
+from app.config import get_app_config
 
 router = APIRouter()
 
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_audio(
-    user_id: str = Form(..., description="ID of the user uploading the file"),
     tags: str = Form(default="", description="Comma-separated tags for the audio file"),
     additional_info: str = Form(default="", description="Additional info about audio file"),
     audio: UploadFile = File(..., description="Audio file to upload"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> UploadResponse:
     """Upload an audio file with metadata"""
 
     config = get_app_config()
-    request_data = UploadRequest(user_id=user_id, tags=tags, additional_info=additional_info)
+    request_data = UploadRequest(
+        user_id=current_user.user_id, 
+        tags=clean_input(tags), 
+        additional_info=clean_input(additional_info)
+    )
     
     is_valid, mime_type = validate_audio_file(audio, config.file_config)
     if not is_valid:
@@ -90,13 +109,12 @@ async def upload_audio(
 
 @router.get("/list", response_model=ListResponse)
 async def list_audio_files(
-    user_id: str = Query(..., description="ID of the user whose files to list"),
     tag: str = Query(None, description="Tag to filter files by"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> ListResponse:
     """List audio files for a user, optionally filtered by tag"""
-
-    request_data = ListRequest(user_id=user_id, tag=tag)
+    request_data = ListRequest(user_id=current_user.user_id, tag=clean_input(tag) if tag else None)
     all_files = db.query(AudioFile).filter(AudioFile.user_id == request_data.user_id).all()
     files = request_data.apply_tag_filter(all_files)
     
@@ -111,13 +129,13 @@ async def list_audio_files(
 @router.get("/download")
 async def download_user_files(
     background_tasks: BackgroundTasks,
-    user_id: str = Query(..., description="ID of the user whose files to download"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> FileResponse:
     """Download all audio files for a user as a ZIP archive with metadata"""
 
     config = get_app_config()
-    request_data = DownloadRequest(user_id=user_id)
+    request_data = DownloadRequest(user_id=current_user.user_id)
     
     files = db.query(AudioFile).filter(AudioFile.user_id == request_data.user_id).all()
     log_database_operation("select", "audio_files", request_data.user_id, True)
